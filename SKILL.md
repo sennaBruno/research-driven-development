@@ -313,6 +313,74 @@ The phases don't change — only the depth of each phase scales with complexity.
 
 ---
 
+## Setup Guide — Claude Code Integration
+
+For this skill to activate proactively (without `/research-driven-development` every time), configure these enforcement layers. Each layer adds reliability at a known token cost.
+
+### Layer 1: CLAUDE.md (required)
+
+Add to your project root `CLAUDE.md`. This loads once per session (~500 tokens).
+
+```markdown
+## Skills
+Invoke `research-driven-development` before any feature, architecture, or setup task.
+Domain skills are enforced by path-scoped rules in `.claude/rules/`.
+```
+
+Keep it to 2-3 lines. Detailed enforcement belongs in rules, not here.
+
+### Layer 2: Path-scoped rules (recommended)
+
+Create `.claude/rules/` files with `globs:` frontmatter. These load ONLY when editing matching files (~65 tokens each, zero cost otherwise).
+
+**Example — Python gate** (`.claude/rules/python-gate.md`):
+```markdown
+---
+globs:
+  - "backend/**/*.py"
+  - "tests/**/*.py"
+---
+You are editing a Python file. Before making changes, invoke `async-python-patterns`
+for async code or `python-testing-patterns` for tests.
+```
+
+**Example — Flutter gate** (`.claude/rules/flutter-gate.md`):
+```markdown
+---
+globs:
+  - "lib/**/*.dart"
+  - "test/**/*.dart"
+---
+You are editing a Flutter/Dart file. Before making changes, invoke `flutter-architecture`.
+If writing tests, also invoke `flutter-testing`.
+```
+
+Adapt glob paths and skill names to your stack.
+
+### Layer 3: SessionStart hook (if available)
+
+If you use the `superpowers` plugin, its SessionStart hook already injects skill awareness at ~80-90% reliability. No extra setup needed — it composes with Layers 1-2.
+
+### What NOT to set up
+
+**UserPromptSubmit hooks for skill enforcement:** These inject tokens on EVERY user message (~150 tokens × 50 prompts = 7,500 tokens/session for only ~4% improvement over Layers 1-2). The cost-benefit ratio is poor.
+
+**Global rules duplicating CLAUDE.md:** A `.claude/rules/skill-enforcement.md` that repeats what CLAUDE.md says wastes ~150 tokens/session with no reliability gain.
+
+### Token budget summary
+
+| Layer | Tokens/session | Reliability | Recommendation |
+|-------|---------------|-------------|----------------|
+| CLAUDE.md mention | ~500 (once) | 60-70% | Required |
+| Path-scoped rules | ~65 per rule (on match) | +10-15% | Recommended |
+| SessionStart hook | ~200 (once) | 80-90% | Use if available |
+| UserPromptSubmit hook | ~7,500+ (per prompt) | +4% | Not worth it |
+| Explicit `/skill` | 0 | 100% | Fallback |
+
+**Target: ~700 tokens/session for 80-90% proactive activation.** The remaining 10-20% is covered by explicit invocation when needed.
+
+---
+
 ## The Bottom Line
 
 **Research is not optional overhead — it is the foundation of quality.**
